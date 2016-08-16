@@ -36,7 +36,7 @@ print ("Current folder is %s" % (cwd) )
 
 # Configure the locations of the images and reshaping sizes
 # ------------------------------------------------------------------- #
-paths = {"images/cats", "images/dogs"}
+paths = ["images/cats", "images/dogs", '']
 imgsize = [64, 64]      # The reshape size
 use_gray = 0            # Grayscale
 data_name = "data4vgg"  # Save name
@@ -53,6 +53,7 @@ for relpath in paths:
             continue
         fullpath = os.path.join(fullpath, f)
         imgcnt = imgcnt + 1
+
 # Grayscale
 def rgb2gray(rgb):
     if len(rgb.shape) is 3:
@@ -60,12 +61,15 @@ def rgb2gray(rgb):
     else:
         print ("Current Image is GRAY!")
         return rgb
+
 if use_gray:
     totalimg   = np.ndarray((imgcnt, imgsize[0]*imgsize[1]))
 else:
     totalimg   = np.ndarray((imgcnt, imgsize[0]*imgsize[1]*3))
+
 totallabel = np.ndarray((imgcnt, nclass))
 imgcnt     = 0
+
 for i, relpath in zip(range(nclass), paths):
     path = cwd + "/" + relpath
     flist = os.listdir(path)
@@ -137,6 +141,7 @@ def net(data_path, input_image):
         net[name] = current
     assert len(net) == len(layers)
     return net, mean_pixel
+
 def _conv_layer(input, weights, bias):
     conv = tf.nn.conv2d(input, tf.constant(weights), strides=(1, 1, 1, 1),
             padding='SAME')
@@ -163,12 +168,12 @@ for i in range(ntest):
     currimg = testimg[i, :]
     currimg = np.reshape(currimg, [imgsize[0], imgsize[1], 3])
     testimg_tensor[i, :, :, :] = currimg
-print ("Shape of trainimg_tensor is %s" % (testimg_tensor.shape,))
+print ("Shape of testimg_tensor is %s" % (testimg_tensor.shape,))
 
 # Get conv features
 VGG_PATH = cwd + "/data/imagenet-vgg-verydeep-19.mat"
 with tf.Graph().as_default(), tf.Session() as sess:
-    with tf.device("/cpu:0"):
+    with tf.device("/gpu:0"):
         img_placeholder = tf.placeholder(tf.float32
                                          , shape=(None, imgsize[0], imgsize[1], 3))
         nets, mean_pixel = net(VGG_PATH, img_placeholder)
@@ -195,23 +200,23 @@ print ("Shape of 'train_vectorized' is %s" % (train_features.shape,))
 print ("Shape of 'test_vectorized' is %s" % (test_features.shape,))
 
 # Parameters
-learning_rate   = 0.0001
+learning_rate = 0.0001
 training_epochs = 100
-batch_size      = 100
-display_step    = 10
+batch_size = 100
+display_step = 10
 # tf Graph input
 x = tf.placeholder(tf.float32, [None, 4*4*512])
 y = tf.placeholder(tf.float32, [None, nclass])
 keepratio = tf.placeholder(tf.float32)
 # Network
-with tf.device("/cpu:0"):
-    n_input  = dim
+with tf.device("/gpu:0"):
+    n_input = dim
     n_output = nclass
-    weights  = {
+    weights = {
         'wd1': tf.Variable(tf.random_normal([4*4*512, 1024], stddev=0.1)),
         'wd2': tf.Variable(tf.random_normal([1024, n_output], stddev=0.1))
     }
-    biases   = {
+    biases = {
         'bd1': tf.Variable(tf.random_normal([1024], stddev=0.1)),
         'bd2': tf.Variable(tf.random_normal([n_output], stddev=0.1))
     }

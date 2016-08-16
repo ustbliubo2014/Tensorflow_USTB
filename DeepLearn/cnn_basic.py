@@ -30,10 +30,10 @@ import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 
 mnist = input_data.read_data_sets('data/', one_hot=True)
-trainimg   = mnist.train.images
+trainimg  = mnist.train.images
 trainlabel = mnist.train.labels
-testimg    = mnist.test.images
-testlabel  = mnist.test.labels
+testimg = mnist.test.images
+testlabel = mnist.test.labels
 
 # Define convolutional neural network architecture
 
