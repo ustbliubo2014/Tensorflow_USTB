@@ -3,74 +3,110 @@
 """
 @author: liubo-it
 @software: PyCharm Community Edition
-@file: DeepId.py
-@time: 2016/8/16 19:25
+@file: tmp.py
+@time: 2016/8/17 11:10
 @contact: ustb_liubo@qq.com
-@annotation: DeepId
+@annotation: tmp
 """
-import sys
-import logging
-from logging.config import fileConfig
-import os
+
 import tensorflow as tf
-import facenet
+import numpy as np
+from time import time
+from sklearn.cross_validation import train_test_split
+import os
+import msgpack_numpy
+import sys
+from scipy.misc import imresize, imread
+import traceback
+from keras.utils import np_utils
 
-reload(sys)
-sys.setdefaultencoding("utf-8")
-fileConfig('logger_config.ini')
-logger_error = logging.getLogger('errorhandler')
+# 训练originalimages, 200个人, 每个人14张图片
+learning_rate = 0.001
+training_epochs = 100
+display_step = 1
+batch_size = 128
+test_size = 256
+nb_classes = 181
+channel = 3
+pic_shape = 128
+
+
+model_data, model_label = msgpack_numpy.load(open('/data/liubo/face/originalimages/originalimages_model.p', 'rb'))
+model_label = np_utils.to_categorical(model_label, nb_classes)
+print model_data.shape, model_label.shape
+
+
+def init_weights(shape):
+    return tf.Variable(tf.random_normal(shape, stddev=0.01))
+
+
+def model(X, w, w2, w3, w4, w5, w_o, p_keep_conv, p_keep_hidden):
+    l1a = tf.nn.relu(tf.nn.conv2d(X, w, strides=[1, 1, 1, 1], padding='SAME'))
+    l1 = tf.nn.max_pool(l1a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    l1 = tf.nn.lrn(l1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
+    # l1 = tf.nn.dropout(l1, p_keep_conv)
+
+    l2a = tf.nn.relu(tf.nn.conv2d(l1, w2, strides=[1, 1, 1, 1], padding='SAME'))
+    l2 = tf.nn.max_pool(l2a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    l2 = tf.nn.lrn(l2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
+    # l2 = tf.nn.dropout(l2, p_keep_conv)
+
+    l3a = tf.nn.relu(tf.nn.conv2d(l2, w3, strides=[1, 1, 1, 1], padding='SAME'))
+    l3 = tf.nn.max_pool(l3a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+    l3 = tf.nn.lrn(l3, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
+    l4a = tf.nn.relu(tf.nn.conv2d(l3, w4, strides=[1, 1, 1, 1], padding='SAME'))
+    l4a = tf.nn.lrn(l4a, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
+
+    concat = tf.concat(3, [l3, l4a])
+    concat = tf.reshape(concat, [-1, w5.get_shape().as_list()[0]])
+    concat = tf.nn.dropout(concat, p_keep_conv)
+
+    l5 = tf.nn.relu(tf.matmul(concat, w5))
+    l5 = tf.nn.dropout(l5, p_keep_hidden)
+
+    pyx = tf.matmul(l5, w_o)
+    return pyx
+
+global_step = tf.Variable(0, name='global_step', trainable=False)
+saver = tf.train.Saver()
+
+
+X = tf.placeholder("float", [None, pic_shape, pic_shape, channel])
+Y = tf.placeholder("float", [None, nb_classes])
+
+w = init_weights([3, 3, channel, 64])       # 3x3x1 conv, 64 outputs
+w2 = init_weights([3, 3, 64, 128])     # 3x3x32 conv, 64 outputs
+w3 = init_weights([3, 3, 128, 256])    # 3x3x64 conv, 128 outputs
+w4 = init_weights([3, 3, 256, 256])   # 3x3x128 conv, 128 outputs
+w5 = init_weights([(256+256) * 16 * 16, 2048]) # FC 128 * 16 * 16 inputs, 1024 outputs
+w_o = init_weights([2048, nb_classes])         # FC 1024 inputs, 1800 outputs (labels)
+
+p_keep_conv = tf.placeholder("float")
+p_keep_hidden = tf.placeholder("float")
+py_x = model(X, w, w2, w3, w4, w5, w_o, p_keep_conv, p_keep_hidden)
+
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(py_x, Y))
+train_op = tf.train.RMSPropOptimizer(0.01, 0.9).minimize(cost)
+predict_op = tf.argmax(py_x, 1)
 
 
 
-def inference(images, pool_type, use_lrn, keep_probability, phase_train=True):
-    """ Define an inference network for face recognition based
-         on inception modules using batch normalization
+# Launch the graph in a session
+with tf.Session() as sess:
+    # you need to initialize all variables
+    tf.initialize_all_variables().run()
+    last_acc = 0
 
-    Args:
-    images: The images to run inference on, dimensions batch_size x height x width x channels
-    phase_train: True if batch normalization should operate in training mode
-    """
-    conv1 = facenet.conv(images, 3, 64, 3, 3, 2, 2, 'SAME', 'conv1_3x3', phase_train=phase_train, use_batch_norm=True)
-    pool1 = facenet.mpool(conv1,  3, 3, 2, 2, 'SAME')
-    if use_lrn:
-        lrn1 = tf.nn.local_response_normalization(pool1, depth_radius=5, bias=1.0, alpha=1e-4, beta=0.75)
-    else:
-        lrn1 = pool1
+    for i in range(training_epochs):
+        global_step.assign(i).eval()
+        print 'epoch :', i
+        all_train_result = []
+        start_time = time()
+        training_batch = zip(range(0, len(model_data), batch_size),
+                             range(batch_size, len(model_label), batch_size))
 
-    conv2 = facenet.conv(lrn1,  64, 128, 1, 1, 1, 1, 'SAME', 'conv2_1x1', phase_train=phase_train, use_batch_norm=True)
-    pool2 = facenet.mpool(conv2,  3, 3, 2, 2, 'SAME')
-    if use_lrn:
-        lrn2 = tf.nn.local_response_normalization(pool1, depth_radius=5, bias=1.0, alpha=1e-4, beta=0.75)
-    else:
-        lrn2 = pool2
-
-    conv3 = facenet.conv(lrn2,  128, 256, 3, 3, 1, 1, 'SAME', 'conv3_3x3', phase_train=phase_train, use_batch_norm=True)
-    pool3 = facenet.mpool(conv3, )
-    if use_lrn:
-        lrn3 = tf.nn.local_response_normalization(conv3, depth_radius=5, bias=1.0, alpha=1e-4, beta=0.75)
-    else:
-        lrn2 = conv3
-    pool3 = facenet.mpool(lrn2,  3, 3, 2, 2, 'SAME')
-
-  # incept3a = facenet.inception(pool3,    192, 1, 64, 96, 128, 16, 32, 3, 32, 1, 'MAX', 'incept3a', phase_train=phase_train, use_batch_norm=True)
-  # incept3b = facenet.inception(incept3a, 256, 1, 64, 96, 128, 32, 64, 3, 64, 1, pool_type, 'incept3b', phase_train=phase_train, use_batch_norm=True)
-  # incept3c = facenet.inception(incept3b, 320, 2, 0, 128, 256, 32, 64, 3, 0, 2, 'MAX', 'incept3c', phase_train=phase_train, use_batch_norm=True)
-  #
-  # incept4a = facenet.inception(incept3c, 640, 1, 256, 96, 192, 32, 64, 3, 128, 1, pool_type, 'incept4a', phase_train=phase_train, use_batch_norm=True)
-  # incept4b = facenet.inception(incept4a, 640, 1, 224, 112, 224, 32, 64, 3, 128, 1, pool_type, 'incept4b', phase_train=phase_train, use_batch_norm=True)
-  # incept4c = facenet.inception(incept4b, 640, 1, 192, 128, 256, 32, 64, 3, 128, 1, pool_type, 'incept4c', phase_train=phase_train, use_batch_norm=True)
-  # incept4d = facenet.inception(incept4c, 640, 1, 160, 144, 288, 32, 64, 3, 128, 1, pool_type, 'incept4d', phase_train=phase_train, use_batch_norm=True)
-  # incept4e = facenet.inception(incept4d, 640, 2, 0, 160, 256, 64, 128, 3, 0, 2, 'MAX', 'incept4e', phase_train=phase_train, use_batch_norm=True)
-  #
-  # incept5a = facenet.inception(incept4e,    1024, 1, 384, 192, 384, 0, 0, 3, 128, 1, pool_type, 'incept5a', phase_train=phase_train, use_batch_norm=True)
-  # incept5b = facenet.inception(incept5a, 896, 1, 384, 192, 384, 0, 0, 3, 128, 1, 'MAX', 'incept5b', phase_train=phase_train, use_batch_norm=True)
-  # pool6 = facenet.apool(incept5b,  3, 3, 1, 1, 'VALID')
-  #
-  # resh1 = tf.reshape(pool6, [-1, 896])
-  # affn1 = facenet.affine(resh1, 896, 128)
-  # dropout = tf.nn.dropout(affn1, keep_probability)
-  # norm = tf.nn.l2_normalize(dropout, 1, 1e-10, name='embeddings')
-  #
-  # return norm
+        for start, end in training_batch:
+            sess.run(train_op, feed_dict={X: model_data[start:end], Y: model_label[start:end],
+                                p_keep_conv: 0.8, p_keep_hidden: 0.5})
 
 
