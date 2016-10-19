@@ -80,25 +80,19 @@ class cae():
 
         self.loss()
 
-        # 収束関数の定義
         self.training()
 
-        # チェックポイントの読み込み
         self.saver = tf.train.Saver()
         self.restore()
 
-        # 学習の実行
         self.hidden, self.W_p, self.b_p, self.output = self.learning()
 
-    # セッションの黒酢
     def session_close(self):
         self.sess.close()
 
-    # パラメータの取得
     def get_params(self):
         return self.hidden, self.W_p, self.b_p, self.output
 
-    # ノイズ
     def add_noise(self, labels):
         if self.noise:
             y = []
@@ -112,7 +106,6 @@ class cae():
         return y
 
 
-   # モデルの復旧
     def restore(self):
         if os.path.exists(self.checkpoint) and self.init == False:
             try:
@@ -220,7 +213,7 @@ def bias_variable(shape):
 
 if __name__ == '__main__':
     pre_training_data = 50
-    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+    mnist = input_data.read_data_sets("/home/liubo-it/siamese_tf_mnist/MNIST_data/", one_hot=True)
     data = mnist.train.next_batch(pre_training_data)
     test_data = []
     for d in data[0]:
@@ -245,7 +238,7 @@ if __name__ == '__main__':
             'SparseBeta' : 3
             }
     c = cae(config = config)
+    c.learning()
 
 
-if __name__ == '__main__':
-    pass
+

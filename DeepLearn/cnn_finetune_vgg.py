@@ -171,7 +171,7 @@ for i in range(ntest):
 print ("Shape of testimg_tensor is %s" % (testimg_tensor.shape,))
 
 # Get conv features
-VGG_PATH = cwd + "/data/imagenet-vgg-verydeep-19.mat"
+VGG_PATH = cwd + "/data/liubo/neural_style/imagenet-vgg-verydeep-19.mat"
 with tf.Graph().as_default(), tf.Session() as sess:
     with tf.device("/gpu:0"):
         img_placeholder = tf.placeholder(tf.float32

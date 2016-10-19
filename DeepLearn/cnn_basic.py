@@ -29,7 +29,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 
-mnist = input_data.read_data_sets('data/', one_hot=True)
+mnist = input_data.read_data_sets('/home/liubo-it/siamese_tf_mnist/MNIST_data/', one_hot=True)
 trainimg  = mnist.train.images
 trainlabel = mnist.train.labels
 testimg = mnist.test.images
@@ -46,6 +46,7 @@ display_step    = 1
 # Network
 n_input  = 784
 n_output = 10
+# 指定gpu
 with tf.device('/gpu:2'):
     weights  = {
         'wc1': tf.Variable(tf.random_normal([3, 3, 1, 64], stddev=0.1)),
@@ -59,6 +60,7 @@ with tf.device('/gpu:2'):
         'bd1': tf.Variable(tf.random_normal([1024], stddev=0.1)),
         'bd2': tf.Variable(tf.random_normal([n_output], stddev=0.1))
     }
+
     def conv_basic(_input, _w, _b, _keepratio):
         # Input
         _input_r = tf.reshape(_input, shape=[-1, 28, 28, 1])
@@ -111,7 +113,7 @@ with tf.device('/gpu:2'):
     init = tf.initialize_all_variables()
 
 # Saver
-save_step = 1;
+save_step = 1
 saver = tf.train.Saver(max_to_keep=training_epochs)
 
 print ("Network Ready to Go!")
