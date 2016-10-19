@@ -145,7 +145,6 @@ if __name__ == '__main__':
 
             if step % 1000 == 0 and step > 0:
                 saver.save(sess, 'models/model.ckpt')
-                # embed = siamese.o1.eval({siamese.x1: mnist.test.images})
-                # embed.tofile('embed.txt')
+
     else:
         saver.restore(sess, 'models/model.ckpt')
