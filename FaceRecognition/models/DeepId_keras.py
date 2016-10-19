@@ -101,7 +101,7 @@ model.compile(optimizer=SGD(momentum=0.9), loss='categorical_crossentropy')
 print model.summary()
 
 model_data, model_label = msgpack_numpy.load(open('/data/liubo/face/originalimages/originalimages_model.p', 'rb'))
-model_data = np.transpose(model_data, (0,3,1,2))
+model_data = np.transpose(model_data, (0, 3, 1, 2))
 model_label = np_utils.to_categorical(model_label, NB_CLASS)
 print model_data.shape, model_label.shape
 
