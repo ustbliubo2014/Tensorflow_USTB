@@ -4,7 +4,7 @@
 @author: liubo
 @software: PyCharm Community Edition
 @file: inference.py
-@time: 2016/10/19 17:40
+@time: 2016/10/20 16:41
 @contact: ustb_liubo@qq.com
 @annotation: inference
 """
@@ -24,7 +24,7 @@ sys.setdefaultencoding("utf-8")
 def inference(images):
 
     initer = tf.truncated_normal_initializer(stddev=0.01)
-    w1 = tf.get_variable('la1W', dtype=tf.float32, shape=[3, 3, 3, 32], initializer=initer)
+    w1 = tf.get_variable('la1W', dtype=tf.float32, shape=[3, 3, 1, 32], initializer=initer)
 
     l1a = tf.nn.relu(tf.nn.conv2d(images, w1, strides=[1, 1, 1, 1], padding='SAME'))
     l1 = tf.nn.max_pool(l1a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -48,8 +48,10 @@ def inference(images):
 
     concat = tf.concat(3, [l3, l4a])
 
+    print l3, l4a
     # 如果不能确定flatten之后的大小,可以填一个素数,程序报错后就可以得到输出的维度(总数/batch_size)
-    w5 = tf.get_variable('w5', dtype=tf.float32, shape=[2304*2, 1024], initializer=initer)
+    # 可以根据l3, l4a的shape确定
+    w5 = tf.get_variable('w5', dtype=tf.float32, shape=[8192, 1024], initializer=initer)
     concat = tf.reshape(concat, [-1, w5.get_shape().as_list()[0]])
 
     l5 = tf.matmul(concat, w5)

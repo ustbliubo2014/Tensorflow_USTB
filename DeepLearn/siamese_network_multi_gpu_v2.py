@@ -3,10 +3,10 @@
 """
 @author: liubo
 @software: PyCharm Community Edition
-@file: cnn_basic_multi_gpu.py
-@time: 2016/10/19 16:55
+@file: siamese_network_multi_gpu_v2.py
+@time: 2016/10/21 17:39
 @contact: ustb_liubo@qq.com
-@annotation: cnn_basic_multi_gpu
+@annotation: siamese_network_multi_gpu_v2
 """
 import sys
 import logging
@@ -30,8 +30,11 @@ import tensorflow as tf
 import cifar10
 import inference_32
 import pdb
+import input_data
+import siamese_network
 
 
+mnist = input_data.read_data_sets("/home/liubo-it/siamese_tf_mnist/MNIST_data",one_hot=False)
 FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('train_dir', '/tmp/cifar10_train',
@@ -39,7 +42,7 @@ tf.app.flags.DEFINE_string('train_dir', '/tmp/cifar10_train',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
                             """Number of batches to run.""")
-tf.app.flags.DEFINE_integer('num_gpus', 4,
+tf.app.flags.DEFINE_integer('num_gpus', 1,
                             """How many GPUs to use.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
@@ -58,16 +61,31 @@ def tower_loss(scope):
     """
 
     # images和labels都是Tensor, 已经是tf格式读入的数据[每个gpu自己读入数据进行处理]
-    images, labels = cifar10.distorted_inputs()
-    # 这里images已经是读入的数据了
-    # < tf.Tensor 'tower_0/shuffle_batch:0' shape = (128, 24, 24, 3) dtype = float32 >
+    X_train = mnist.train._images
+    y_train = mnist.train._labels
+    X_test = mnist.test._images
+    y_test = mnist.test._labels
+    X_train = np.reshape(X_train, (X_train.shape[0], 28, 28, 1))
+    X_test = np.reshape(X_test, (X_test.shape[0], 28, 28, 1))
+    digit_indices = [np.where(y_train == i)[0] for i in range(10)]
+    tr_pairs, tr_y = siamese_network.create_pairs(X_train, digit_indices)
+    digit_indices = [np.where(y_test == i)[0] for i in range(10)]
+    te_pairs, te_y = siamese_network.create_pairs(X_test, digit_indices)
+
+
+    images_L = tf.cast(tr_pairs[:, 0], tf.float32)
+    images_R = tf.cast(tr_pairs[:, 1], tf.float32)
+    labels = tf.cast(tr_y, tf.float32)
+
     # Build inference Graph.
-    logits = inference_32.inference(images)
+    model1, model2, distance = siamese_network.distance_model(images_L, images_R)
+    # logits = inference_32.inference(images)
 
     # Build the portion of the Graph calculating the losses. Note that we will
     # assemble the total_loss using a custom function below.
     # loss中将计算的误差放入collection中 tf.add_to_collection('losses', cross_entropy_mean)
-    _ = inference_32.loss(logits, labels)
+    # _ = inference_32.loss(logits, labels)
+    _ = siamese_network.siamese_loss(distance, labels)
 
     # Assemble all of the losses for the current tower only.
     losses = tf.get_collection('losses', scope)
@@ -158,6 +176,7 @@ def train():
     opt = tf.train.GradientDescentOptimizer(lr)
 
     # Calculate the gradients for each model tower.
+
     tower_grads = []
     for i in xrange(FLAGS.num_gpus):
       with tf.device('/gpu:%d' % i):
@@ -220,10 +239,14 @@ def train():
     # Start running operations on the Graph. allow_soft_placement must be set to
     # True to build towers on GPU, as some of the ops do not have GPU
     # implementations.
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     sess = tf.Session(config=tf.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=FLAGS.log_device_placement))
+        log_device_placement=False,
+        gpu_options=gpu_options)
+    )
     sess.run(init)
+
 
     # Start the queue runners.
     tf.train.start_queue_runners(sess=sess)
@@ -231,7 +254,9 @@ def train():
     summary_writer = tf.train.SummaryWriter(FLAGS.train_dir, sess.graph)
 
     # 这里开始才是读入数据进行训练, 以前都是构建网络和梯度计算合并的方法
+    print 'start train'
     for step in xrange(FLAGS.max_steps):
+      # 每个step
       start_time = time.time()
       _, loss_value = sess.run([train_op, loss])
       duration = time.time() - start_time
@@ -268,3 +293,4 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 if __name__ == '__main__':
   tf.app.run()
+

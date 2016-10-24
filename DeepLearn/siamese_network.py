@@ -3,237 +3,176 @@
 """
 @author: liubo
 @software: PyCharm Community Edition
-@file: siamese.py
-@time: 2016/10/19 12:26
+@file: siamese_network_1.py
+@time: 2016/10/20 17:53
 @contact: ustb_liubo@qq.com
-@annotation: siamese_network
+@annotation: siamese_network_1
 """
-import sys
-import logging
-from logging.config import fileConfig
-import os
-from tensorflow.examples.tutorials.mnist import input_data # for data
-import tensorflow as tf
+import random
 import numpy as np
+import time
+import tensorflow as tf
+import input_data
+import math
+import sys
+import inference_28
 import pdb
+import msgpack_numpy
+import inference_150
 
-reload(sys)
-sys.setdefaultencoding("utf-8")
-# fileConfig('logger_config.ini')
-# logger_error = logging.getLogger('errorhandler')
-
-# class Siamese:
-#     # Create model
-#     def __init__(self):
-#         self.channel_num = 3
-#         self.x1 = tf.placeholder(tf.float32, [None, 32, 32, self.channel_num])
-#         self.x2 = tf.placeholder(tf.float32, [None, 32, 32, self.channel_num])
-#
-#         # 构建共享网络
-#         with tf.variable_scope("siamese") as scope:
-#             self.o1 = self.network(self.x1)
-#             scope.reuse_variables()
-#             self.o2 = self.network(self.x2)
-#
-#         # Create loss
-#         self.y_ = tf.placeholder(tf.float32, [None])
-#         self.loss = self.loss_with_spring()
-#
-#
-#     def network(self, x):
-#         initer = tf.truncated_normal_initializer(stddev=0.01)
-#         w1 = tf.get_variable('la1W', dtype=tf.float32, shape=[3, 3, self.channel_num, 32], initializer=initer)
-#
-#         l1a = tf.nn.relu(tf.nn.conv2d(x, w1, strides=[1, 1, 1, 1], padding='SAME'))
-#         l1 = tf.nn.max_pool(l1a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-#         l1 = tf.nn.lrn(l1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-#         l1 = tf.nn.dropout(l1, 0.5)
-#
-#         w2 = tf.get_variable('la2W', dtype=tf.float32, shape=[3, 3, 32, 64], initializer=initer)
-#         l2a = tf.nn.relu(tf.nn.conv2d(l1, w2, strides=[1, 1, 1, 1], padding='SAME'))
-#         l2 = tf.nn.max_pool(l2a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-#         l2 = tf.nn.lrn(l2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-#         l2 = tf.nn.dropout(l2, 0.5)
-#
-#         w3 = tf.get_variable('la3W', dtype=tf.float32, shape=[3, 3, 64, 128], initializer=initer)
-#         l3a = tf.nn.relu(tf.nn.conv2d(l2, w3, strides=[1, 1, 1, 1], padding='SAME'))
-#         l3 = tf.nn.max_pool(l3a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-#         l3 = tf.nn.lrn(l3, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-#
-#         w4 = tf.get_variable('la4W', dtype=tf.float32, shape=[3, 3, 128, 128], initializer=initer)
-#         l4a = tf.nn.relu(tf.nn.conv2d(l3, w4, strides=[1, 1, 1, 1], padding='SAME'))
-#         l4a = tf.nn.lrn(l4a, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-#
-#         concat = tf.concat(3, [l3, l4a])
-#         # pdb.set_trace()
-#         w5 = tf.get_variable('w5', dtype=tf.float32, shape=[4096, 1024], initializer=initer)
-#         concat = tf.reshape(concat, [-1, w5.get_shape().as_list()[0]])
-#
-#         l5 = tf.matmul(concat, w5)
-#
-#         return l5
-#
-#     def loss_with_spring(self):
-#         margin = 3.0
-#         labels_t = self.y_
-#         labels_f = tf.sub(1.0, self.y_, name='1-y')
-#         eucd = tf.pow(tf.sub(self.o1, self.o2), 2)
-#         eucd = tf.reduce_sum(eucd, 1)
-#         # Dw = ||Gw(X1)-Gw(X2)||2
-#         eucd2 = tf.sqrt(eucd + 1e-6, name='eucd')
-#         # yi*||CNN(p1i)-CNN(p2i)||^2 + (1-yi)*max(0, C-||CNN(p1i)-CNN(p2i)||^2)
-#         C = tf.constant(margin, name='C')
-#         pos = tf.mul(labels_t, eucd, name='yi_x_eucd2')
-#         neg = tf.mul(labels_f, tf.pow(tf.maximum(tf.sub(C, eucd2), 0), 2), name='1-yi_max')
-#         losses = tf.add(pos, neg, name='losses')
-#         loss = tf.reduce_mean(losses, name='loss')
-#         return loss
-#
-#
-#     def loss_with_step(self):
-#         margin = 3.0
-#         labels_t = self.y_
-#         labels_f = tf.sub(1.0, self.y_, name='1-yi')
-#         eucd2 = tf.pow(tf.sub(self.o1 - self.o2), 2)
-#         eucd2 = tf.reduce_sum(eucd2, 1)
-#         eucd = tf.sqrt(eucd2 + 1e-6, name='eucd')
-#         C = tf.constant(margin, name='C')
-#         pos = tf.mul(labels_t, eucd, name='y_x_eucd')
-#         neg = tf.mul(labels_f, tf.maximum(tf.sub(C, eucd), 0), name='Ny_C-eucd')
-#         losses = tf.add(pos, neg, name='losses')
-#         loss = tf.reduce_mean(losses, name='loss')
-#         return loss
-#
+mnist = input_data.read_data_sets("/home/liubo-it/siamese_tf_mnist/MNIST_data",one_hot=False)
+nb_classes = 10
 
 
-class Siamese:
-    # Create model
-    def __init__(self):
-        self.channel_num = 3
-        self.x1 = tf.placeholder(tf.float32, [None, 32, 32, self.channel_num])
-        self.x2 = tf.placeholder(tf.float32, [None, 32, 32, self.channel_num])
-
-        # 构建共享网络
-        with tf.variable_scope("siamese") as scope:
-            self.o1 = self.network(self.x1)
-            scope.reuse_variables()
-            self.o2 = self.network(self.x2)
-
-        # Create loss
-        self.y_ = tf.placeholder(tf.float32, [None])
-        self.loss = self.loss_with_spring()
-
-
-    def network(self, x):
-        initer = tf.truncated_normal_initializer(stddev=0.01)
-        w1 = tf.get_variable('la1W', dtype=tf.float32, shape=[3, 3, self.channel_num, 32], initializer=initer)
-
-        l1a = tf.nn.relu(tf.nn.conv2d(x, w1, strides=[1, 1, 1, 1], padding='SAME'))
-        l1 = tf.nn.max_pool(l1a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-        l1 = tf.nn.lrn(l1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-        l1 = tf.nn.dropout(l1, 0.5)
-
-        w2 = tf.get_variable('la2W', dtype=tf.float32, shape=[3, 3, 32, 64], initializer=initer)
-        l2a = tf.nn.relu(tf.nn.conv2d(l1, w2, strides=[1, 1, 1, 1], padding='SAME'))
-        l2 = tf.nn.max_pool(l2a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-        l2 = tf.nn.lrn(l2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-        l2 = tf.nn.dropout(l2, 0.5)
-
-        w3 = tf.get_variable('la3W', dtype=tf.float32, shape=[3, 3, 64, 128], initializer=initer)
-        l3a = tf.nn.relu(tf.nn.conv2d(l2, w3, strides=[1, 1, 1, 1], padding='SAME'))
-        l3 = tf.nn.max_pool(l3a, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-        l3 = tf.nn.lrn(l3, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-
-        w4 = tf.get_variable('la4W', dtype=tf.float32, shape=[3, 3, 128, 128], initializer=initer)
-        l4a = tf.nn.relu(tf.nn.conv2d(l3, w4, strides=[1, 1, 1, 1], padding='SAME'))
-        l4a = tf.nn.lrn(l4a, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75)
-
-        concat = tf.concat(3, [l3, l4a])
-        # pdb.set_trace()
-        w5 = tf.get_variable('w5', dtype=tf.float32, shape=[4096, 1024], initializer=initer)
-        concat = tf.reshape(concat, [-1, w5.get_shape().as_list()[0]])
-
-        l5 = tf.matmul(concat, w5)
-
-        return l5
-
-    def loss_with_spring(self):
-        margin = 3.0
-        labels_t = self.y_
-        labels_f = tf.sub(1.0, self.y_, name='1-y')
-        pdb.set_trace()
-        eucd = tf.pow(tf.sub(self.o1, self.o2), 2)
-        eucd = tf.reduce_sum(eucd, 1)
-        # Dw = ||Gw(X1)-Gw(X2)||2
-        eucd2 = tf.sqrt(eucd + 1e-6, name='eucd')
-        # yi*||CNN(p1i)-CNN(p2i)||^2 + (1-yi)*max(0, C-||CNN(p1i)-CNN(p2i)||^2)
-        C = tf.constant(margin, name='C')
-        pos = tf.mul(labels_t, eucd, name='yi_x_eucd2')
-        print 'pos', pos
-        pdb.set_trace()
-        neg = tf.mul(labels_f, tf.pow(tf.maximum(tf.sub(C, eucd2), 0), 2), name='1-yi_max')
-        losses = tf.add(pos, neg, name='losses')
-        loss = tf.reduce_mean(losses, name='loss')
-        return loss
+# 将读入的数据根据label生成正负样本(保证正负样本均衡[所有可能的正样本和相同数量的负样本])
+def create_pairs(x, digit_indices):
+    '''Positive and negative pair creation.
+    Alternates between positive and negative pairs.
+    '''
+    pairs = []
+    labels = []
+    n = min([len(digit_indices[d]) for d in range(nb_classes)]) - 1
+    for d in range(nb_classes):
+        for i in range(n):
+            z1, z2 = digit_indices[d][i], digit_indices[d][i+1]
+            pairs += [[x[z1], x[z2]]]
+            inc = random.randrange(1, nb_classes)
+            dn = (d + inc) % nb_classes
+            z1, z2 = digit_indices[d][i], digit_indices[dn][i]
+            pairs += [[x[z1], x[z2]]]
+            labels += [1, 0]
+    return np.array(pairs), np.array(labels)
 
 
-    def loss_with_step(self):
-        margin = 3.0
-        labels_t = self.y_
-        labels_f = tf.sub(1.0, self.y_, name='1-yi')
-        eucd2 = tf.pow(tf.sub(self.o1 - self.o2), 2)
-        eucd2 = tf.reduce_sum(eucd2, 1)
-        eucd = tf.sqrt(eucd2 + 1e-6, name='eucd')
-        C = tf.constant(margin, name='C')
-        pos = tf.mul(labels_t, eucd, name='y_x_eucd')
-        neg = tf.mul(labels_f, tf.maximum(tf.sub(C, eucd), 0), name='Ny_C-eucd')
-        losses = tf.add(pos, neg, name='losses')
-        loss = tf.reduce_mean(losses, name='loss')
-        return loss
+def build_model(X_):
+    # model = inference_28.inference(X_)
+    # model = inference_32.inference(X_)
+    model = inference_150.inference(X_)
+    return model
 
+
+def contrastive_loss(y_true, y_pred):
+    margin = 1
+    return tf.reduce_mean(y_true * tf.square(y_pred) + (1 - y_true) * tf.square(tf.maximum(margin - y_pred, 0)))
+
+
+def compute_accuracy(prediction,labels):
+    return labels[prediction.ravel() < 0.5].mean()
+
+
+def next_batch(s, e, inputs, labels):
+    input1 = inputs[s:e, 0]
+    input2 = inputs[s:e, 1]
+    y = np.reshape(labels[s:e], (len(range(s, e)), 1))
+    return input1, input2, y
+
+
+def siamese_network(batch_x1, batch_x2, batch_y1, batch_y2):
+    images_L = tf.placeholder(tf.float32, shape=([None, 28, 28, 1]), name='L')
+    images_R = tf.placeholder(tf.float32, shape=([None, 28, 28, 1]), name='R')
+    labels = tf.placeholder(tf.float32, shape=([None, 1]), name='gt')
+    dropout_f = tf.placeholder("float")
+    with tf.variable_scope("siamese") as scope:
+        model1 = build_model(images_L)
+        scope.reuse_variables()
+        model2 = build_model(images_R)
+    return model1, model2
 
 
 if __name__ == '__main__':
-    print('load data')
-    mnist = input_data.read_data_sets('MNIST_data', one_hot=False)
-    sess = tf.InteractiveSession()
 
-    print('build model')
-    # setup siamese network
-    siamese = Siamese()
-    train_step = tf.train.GradientDescentOptimizer(0.01).minimize(siamese.loss)
-    saver = tf.train.Saver()
-    tf.initialize_all_variables().run()
+    # Initializing the variables
+    init = tf.initialize_all_variables()
+    # the data, shuffled and split between train and test sets
+    # X_train = mnist.train._images
+    # y_train = mnist.train._labels
+    # X_test = mnist.test._images
+    # y_test = mnist.test._labels
+    # X_train = np.reshape(X_train, (X_train.shape[0], 28, 28, 1))
+    # X_test = np.reshape(X_test, (X_test.shape[0], 28, 28, 1))
 
-    # if you just want to load a previously trainmodel?
-    new = True
-    model_ckpt = 'models/model.ckpt'
+    X_train, X_test, y_train, y_test = msgpack_numpy.load(open('/data/liubo/face/all_pic_data/FaceScrub.p', 'rb'))
 
-    saver.restore(sess, 'models/model.ckpt')
+    batch_size = 128
+    global_step = tf.Variable(0, trainable=False)
+    # 调siamese网络时,学习率要比分类网络小至少一个数量级
+    starter_learning_rate = 0.0001
+    learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step, 10, 0.1, staircase=True)
+    # create training+test positive and negative pairs
+    digit_indices = [np.where(y_train == i)[0] for i in range(nb_classes)]
+    tr_pairs, tr_y = create_pairs(X_train, digit_indices)
+    digit_indices = [np.where(y_test == i)[0] for i in range(nb_classes)]
+    te_pairs, te_y = create_pairs(X_test, digit_indices)
 
-    if new:
-        # 训练10万个batch
-        for step in range(100000):
-            batch_x1, batch_y1 = mnist.train.next_batch(128)
-            batch_x2, batch_y2 = mnist.train.next_batch(128)
-            batch_x1 = batch_x1.reshape([128, 28, 28, 1])
-            batch_x2 = batch_x2.reshape([128, 28, 28, 1])
-            batch_y = (batch_y1 == batch_y2).astype('float')
+    # images_L = tf.placeholder(tf.float32, shape=([None, 28, 28, 1]), name='L')
+    # images_R = tf.placeholder(tf.float32, shape=([None, 28, 28, 1]), name='R')
+    images_L = tf.placeholder(tf.float32, shape=([None, 150, 150, 3]), name='L')
+    images_R = tf.placeholder(tf.float32, shape=([None, 150, 150, 3]), name='R')
+    labels = tf.placeholder(tf.float32, shape=([None, 1]), name='gt')
+    dropout_f = tf.placeholder("float")
+    with tf.variable_scope("siamese") as scope:
+        model1 = build_model(images_L)
+        scope.reuse_variables()
+        model2 = build_model(images_R)
 
-            _, loss_v = sess.run([train_step, siamese.loss], feed_dict={
-                siamese.x1: batch_x1,
-                siamese.x2: batch_x2,
-                siamese.y_: batch_y})
+    distance = tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(model1, model2), 2), 1, keep_dims=True))
+    loss = contrastive_loss(labels, distance)
 
-            if np.isnan(loss_v):
-                print('Model diverged with loss = NaN')
-                quit()
+    t_vars = tf.trainable_variables()
+    d_vars = [var for var in t_vars if 'l' in var.name]
+    batch = tf.Variable(0)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)
 
-            if step % 10 == 0:
-                print ('step %d: loss %.3f' % (step, loss_v))
 
-            if step % 1000 == 0 and step > 0:
-                saver.save(sess, 'models/model.ckpt')
 
-    else:
-        saver.restore(sess, 'models/model.ckpt')
+    with tf.Session() as sess:
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+        sess = tf.Session(config=tf.ConfigProto(
+            allow_soft_placement=True,
+            log_device_placement=False,
+            gpu_options=gpu_options)
+        )
+        sess.run(init)
+
+        sess.run(init)
+        # sess.run(init)
+        tf.initialize_all_variables().run()
+        # Training cycle
+        for epoch in range(30):
+            avg_loss = 0.
+            avg_acc = 0.
+            total_batch = int(X_train.shape[0]/batch_size)
+            start_time = time.time()
+            # Loop over all batches
+            for i in range(total_batch):
+                try:
+                    s = i * batch_size
+                    e = (i+1) *batch_size
+                    # Fit training using batch data
+                    input1, input2, y = next_batch(s, e, tr_pairs, tr_y)
+                    _, loss_value, predict = sess.run([optimizer, loss, distance],
+                                                   feed_dict={images_L:input1, images_R:input2, labels:y, dropout_f:0.9})
+                    feature1 = model1.eval(feed_dict={images_L:input1, dropout_f:0.9})
+                    feature2 = model2.eval(feed_dict={images_R:input2, dropout_f:0.9})
+                    tr_acc = compute_accuracy(predict, y)
+                    if math.isnan(tr_acc) and epoch != 0:
+                        print('tr_acc %0.2f' % tr_acc)
+                        print('nan')
+                        sys.exit()
+                    avg_loss += loss_value
+                    avg_acc += tr_acc * 100
+                except:
+                    continue
+            duration = time.time() - start_time
+            print('epoch %d  time: %f loss %0.5f acc %0.2f' %(epoch, duration, avg_loss/(total_batch), avg_acc/total_batch))
+        y = np.reshape(tr_y,(tr_y.shape[0],1))
+        predict=distance.eval(feed_dict={images_L:tr_pairs[:,0],images_R:tr_pairs[:,1],labels:y,dropout_f:1.0})
+        tr_acc = compute_accuracy(predict,y)
+        print('Accuract training set %0.2f' % (100 * tr_acc))
+
+        # Test model
+        predict = distance.eval(feed_dict={images_L:te_pairs[:,0], images_R:te_pairs[:,1], labels:y, dropout_f:1.0})
+        y = np.reshape(te_y,(te_y.shape[0],1))
+        te_acc = compute_accuracy(predict,y)
+        print('Accuract test set %0.2f' % (100 * te_acc))
+

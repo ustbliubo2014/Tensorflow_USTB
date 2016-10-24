@@ -30,7 +30,7 @@ from read_data import read_data_sets
 
 
 # 读入数据 -- 转换成numpy的格式进行训练(大规模数据可以使用batch的方法进行训练)
-train_images, train_labels, test_images, test_labels = read_data_sets('data/', one_hot=True)
+train_images, train_labels, test_images, test_labels = read_data_sets('/home/liubo-it/siamese_tf_mnist/MNIST_data/', one_hot=True)
 
 
 # Parameters
