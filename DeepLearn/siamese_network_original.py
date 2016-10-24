@@ -15,7 +15,7 @@ import tensorflow as tf
 import input_data
 import math
 import sys
-import inference_150
+import inference_28
 import pdb
 
 mnist = input_data.read_data_sets("/home/liubo-it/siamese_tf_mnist/MNIST_data",one_hot=False)
@@ -43,7 +43,7 @@ def create_pairs(x, digit_indices):
 
 
 def build_model(X_):
-    model = inference_150.inference(X_)
+    model = inference_28.inference(X_)
     return model
 
 
