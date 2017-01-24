@@ -1,10 +1,10 @@
 # encoding: utf-8
 
 """
-@author: liubo-it
-@software: PyCharm Community Edition
+@author: liubo
+@software: PyCharm
 @file: __init__.py.py
-@time: 2016/8/16 19:04
+@time: 2017/1/24 9:53
 @contact: ustb_liubo@qq.com
 @annotation: __init__.py
 """
@@ -15,8 +15,9 @@ import os
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
-fileConfig('logger_config.ini')
-logger_error = logging.getLogger('errorhandler')
+# fileConfig('logger_config.ini')
+# logger_error = logging.getLogger('errorhandler')
+
 
 if __name__ == '__main__':
     pass

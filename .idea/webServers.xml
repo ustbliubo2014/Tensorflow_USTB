@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="a76bb276-305e-4147-846d-9ce8d6b6a5d2" name="tensorflow" url="http://10.160.164.26">
+        <fileTransfer host="10.160.164.26" port="22" rootFolder="/home/liubo-it" accessType="SFTP" password="dfdbdfdddfcfdfd8df9bdf98df99df9edf8bdfeadf89df8edffbdffddfefdff8" username="liubo-it">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
