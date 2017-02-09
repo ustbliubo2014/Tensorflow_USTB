@@ -3,22 +3,22 @@
 """
 @author: liubo
 @software: PyCharm
-@file: 09_residual_network.py
-@time: 2017/2/8 11:14
+@file: speed_test.py
+@time: 2017/2/8 17:47
 @contact: ustb_liubo@qq.com
-@annotation: 09_residual_network
+@annotation: speed_test
 """
 import sys
 import logging
 from logging.config import fileConfig
 import os
 import tensorflow as tf
-from libs.connections import conv2d, linear
-from collections import namedtuple
-from math import sqrt
+import numpy as np
 import tensorflow.examples.tutorials.mnist.input_data as input_data
 from time import time
-import pdb
+from collections import namedtuple
+from libs.connections import conv2d, linear
+from math import sqrt
 
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -26,7 +26,7 @@ sys.setdefaultencoding("utf-8")
 # logger_error = logging.getLogger('errorhandler')
 
 
-# 
+#
 def residual_network(x, n_outputs,
                      activation=tf.nn.relu):
     """Builds a residual network.
@@ -47,15 +47,15 @@ def residual_network(x, n_outputs,
         If a 2D Tensor is input, the Tensor must be square or else
         the network can't be converted to a 4D Tensor.
     """
-    # 
+    #
     LayerBlock = namedtuple(
         'LayerBlock', ['num_repeats', 'num_filters', 'bottleneck_size'])
-    blocks = [LayerBlock(3, 128, 32),
-              LayerBlock(3, 256, 64),
-              LayerBlock(3, 512, 128),
-              LayerBlock(3, 1024, 256)]
+    blocks = [LayerBlock(1, 128, 32),
+              LayerBlock(1, 256, 64),
+              LayerBlock(1, 512, 128),
+              LayerBlock(1, 1024, 256)]
 
-    # 
+    #
     input_shape = x.get_shape().as_list()
     if len(input_shape) == 2:
         ndim = int(sqrt(input_shape[1]))
@@ -64,7 +64,7 @@ def residual_network(x, n_outputs,
         x = tf.reshape(x, [-1, ndim, ndim, 1])
 
     # First convolution expands to 64 channels and downsamples
-    net = conv2d(x, 64, k_h=7, k_w=7, name='conv1', activation=activation)
+    net = conv2d(x, 64, k_h=3, k_w=3, name='conv1', activation=activation)
 
     # Max pool and downsampling
     net = tf.nn.max_pool(net, [1, 3, 3, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -102,7 +102,7 @@ def residual_network(x, n_outputs,
         except IndexError:
             pass
 
-    # 
+    #
     net = tf.nn.avg_pool(net,
                          ksize=[1, net.get_shape().as_list()[1],
                                 net.get_shape().as_list()[2], 1],
@@ -115,17 +115,21 @@ def residual_network(x, n_outputs,
 
     net = linear(net, n_outputs, activation=tf.nn.softmax)
 
-    # 
+    #
     return net
 
 
 def test_mnist():
     """Test the resnet on MNIST."""
 
-    mnist = input_data.read_data_sets('MNIST_data/', one_hot=True)
-    x = tf.placeholder(tf.float32, [None, 784])
-    y = tf.placeholder(tf.float32, [None, 10])
-    y_pred = residual_network(x, 10)
+    trainX = np.random.random(size=1024*10000)
+    trainY = np.random.random(size=1024*10000)
+    trainX = np.reshape(trainX, (10000, 1024))
+    trainY = np.reshape(trainY, (10000, 1024))
+
+    x = tf.placeholder(tf.float32, [None, 1024])
+    y = tf.placeholder(tf.float32, [None, 1024])
+    y_pred = residual_network(x, 1024)
 
     #  Define loss/eval/training functions
     cross_entropy = -tf.reduce_sum(y * tf.log(y_pred))
@@ -139,35 +143,34 @@ def test_mnist():
     sess = tf.Session()
     sess.run(tf.initialize_all_variables())
 
+    # TensorBoard log目录
+    log_dir = 'speed_log'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    writer = tf.train.SummaryWriter(log_dir, sess.graph)
+    writer.close()
+
+
     #  We'll train in minibatches and report accuracy:
-    batch_size = 50
-    n_epochs = 5
-    for epoch_i in range(n_epochs):
-        start = time()
-        train_accuracy = 0
+    for batch_size in range(1, 510, 50):
+        n_epochs = 1
+        all_time = []
+        for epoch_i in range(n_epochs):
+            for batch_i in range(len(trainX) // batch_size):
+                batch_xs = trainX[batch_i*batch_size:(batch_i+1)*batch_size]
+                batch_ys = trainY[batch_i*batch_size:(batch_i+1)*batch_size]
+                start = time()
+                sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys})
+                end = time()
+                all_time.append(end-start)
+        mean_time = np.mean(all_time)
+        print 'batch_size :', batch_size, 'per_time :', (mean_time / batch_size)
 
-        for batch_i in range(mnist.train.num_examples // batch_size):
-            batch_xs, batch_ys = mnist.train.next_batch(batch_size)
-            train_accuracy += sess.run([optimizer, accuracy], feed_dict={
-                x: batch_xs, y: batch_ys})[1]
-        train_accuracy /= (mnist.train.num_examples // batch_size)
 
-        # Validation
-        valid_accuracy = 0
-        for batch_i in range(mnist.validation.num_examples // batch_size):
-            batch_xs, batch_ys = mnist.validation.next_batch(batch_size)
-            start_predict = time()
-            valid_accuracy += sess.run(accuracy,
-                                       feed_dict={
-                                           x: batch_xs,
-                                           y: batch_ys
-                                       })
-            end_predict = time()
-            print end_predict - start_predict
-        valid_accuracy /= (mnist.validation.num_examples // batch_size)
-        end = time()
-        print('epoch:', epoch_i, ', train:',
-              train_accuracy, ', valid:', valid_accuracy, 'time :', (end - start))
+
+
+
 
 
 if __name__ == '__main__':

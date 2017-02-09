@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="tensorflow" />
+  <component name="PublishConfigData" serverName="tensorflow">
+    <serverData>
+      <paths name="tensorflow">
+        <serverdata>
+          <mappings>
+            <mapping deploy="Tensorflow_USTB" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
 </project>
