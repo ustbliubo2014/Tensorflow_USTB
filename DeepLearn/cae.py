@@ -71,10 +71,8 @@ class cae():
 
         self.sess = tf.InteractiveSession()
 
-
         self.x = tf.placeholder("float", shape=[None, len(self.data[0]), len(self.data[0][0]), len(self.data[0][0][0])])
         self.y_ = tf.placeholder("float", shape=[None, len(self.data[0]), len(self.data[0][0]), len(self.data[0][0][0])])
-
 
         self.interface()
 
@@ -105,7 +103,6 @@ class cae():
             y = labels
         return y
 
-
     def restore(self):
         if os.path.exists(self.checkpoint) and self.init == False:
             try:
@@ -117,7 +114,6 @@ class cae():
         else:
             print "Initialize"
             self.sess.run(tf.initialize_all_variables())
-
 
     def learning(self):
         j = 0
@@ -141,8 +137,6 @@ class cae():
         l, y, w, b = self.sess.run([self.logits[1], self.y, self.W[0], self.b[0]], feed_dict={self.x: xTrain})
         return l, w, b, y
 
-
-
     def training(self):
         if self.algo == 'Adam':
             self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_function)
@@ -153,7 +147,6 @@ class cae():
         else:
             self.train_op = tf.train.AdamOptimizer().minimize(self.loss_function)
 
-
     def loss(self):
         if not self.sparse:
             self.loss_function = tf.nn.l2_loss(self.y_ - self.y) / float(self.batch_size)
@@ -162,7 +155,6 @@ class cae():
             rho = tf.reduce_mean(self.logits[1])
             kl = self.beta * rho
             self.loss_function = (tf.nn.l2_loss(self.y_ - self.y)  + self.beta * kl) / float(self.batch_size)
-
 
     def interface(self):
         self.W, self.b, self.logits = [], [], [self.x]
@@ -237,8 +229,5 @@ if __name__ == '__main__':
             'Sparse' : False,
             'SparseBeta' : 3
             }
-    c = cae(config = config)
+    c = cae(config=config)
     c.learning()
-
-
-
